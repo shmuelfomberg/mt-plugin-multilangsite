@@ -1,0 +1,44 @@
+<mtapp:setting id="blog_internal_name" label="Short Name"
+    hint="Short name for this blog" show_hint=1>
+    <input type="text" name="blog_internal_name" id="blog_internal_name"
+        value="<mt:Var name="blog_internal_name">" />
+</mtapp:setting>
+
+<mtapp:setting id="blog_external_name" label="Public Name"
+    hint="Public name for this blog" show_hint=1>
+    <input type="text" name="blog_external_name" id="blog_external_name"
+        value="<mt:Var name="blog_external_name">" />
+</mtapp:setting>
+
+<mtapp:setting id="blog_groupid" label="Public Name"
+    hint="This blog belongs to" show_hint=1>
+    <select name="blog_groupid" id="blog_groupid" <mt:if name="mls_blog_group_set">disabled="disabled" class="disabled"</mt:if> >
+    	<option value="0" class="mlsIsFirst">Create Group</option>
+    	<mt:loop name="mls_all_groups">
+    	<option value="<$mt:var name="group_id"$>" <mt:if name="this_blog">selected="selected"</mt:if> ><$mt:var name="group_name"$></option>
+    	</mt:loop>
+    </select>
+    <div id="new_group_div" style="visibility: hidden">
+    	<input type="text" id="new_group_name" />
+    	<button type="button" id="new_group_button">Create Group</button> 
+	</div>
+</mtapp:setting>
+
+<mt:SetVarBlock name="javascript_jq" append="1">
+var $mls_groupid = jQuery('#blog_groupid');
+$mls_groupid.change(function(){
+	var $selected = $mls_groupid.find('option:selected');
+	if ($selected.length && $selected.hasClass('mlsIsFirst')) {
+		jQuery('#new_group_div').show();
+	} else {
+		jQuery('#new_group_div').hide();
+	}
+});
+
+jQuery('#new_group_button').click(function(){
+	var val = jQuery('#new_group_name').val();
+	if (!val) return;
+	jQuery('<option></option>').attr('value', 0).text(val).appendTo($mls_groupid);
+	jQuery('#new_group_div').hide();
+});
+</mt:SetVarBlock>
