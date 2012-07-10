@@ -10,13 +10,13 @@
         value="<mt:Var name="blog_external_name">" />
 </mtapp:setting>
 
-<mtapp:setting id="blog_groupid" label="Public Name"
+<mtapp:setting id="blog_groupid" label="Group Name"
     hint="This blog belongs to" show_hint=1>
     <select name="blog_groupid" id="blog_groupid" <mt:if name="mls_blog_group_set">disabled="disabled" class="disabled"</mt:if> >
         <option value="-1" <mt:unless name="mls_blog_group_set">selected="selected"</mt:unless> >~~ Select Group ~~</option>
         <option value="0" class="mlsIsFirst">Create new group</option>
         <mt:loop name="mls_all_groups">
-        <option value="<$mt:var name="group_id"$>" <mt:if name="this_blog">selected="selected"</mt:if> ><$mt:var name="group_name"$></option>
+        <option value="<$mt:var name="group_id"$>x<$mt:var name="group_name"$>" <mt:if name="this_blog">selected</mt:if> ><$mt:var name="group_name"$></option>
         </mt:loop>
     </select>
     <span id="new_group_div" style="display: none">
@@ -40,7 +40,7 @@ jQuery('#new_group_button').click(function(){
     var val = jQuery('#new_group_name').val();
     if (!val) return;
     jQuery('<option></option>')
-        .attr('value', 0)
+        .attr('value', '0x' + val)
         .text(val)
         .appendTo($mls_groupid)
         .attr('selected', 'selected');;
