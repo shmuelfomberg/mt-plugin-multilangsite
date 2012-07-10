@@ -2,10 +2,10 @@ package MT::MlsPlugin;
 use strict;
 use warnings;
 
-sub prepare_blog_groups_list {
-    my ($cb, $app, $params, $tmpl) = @_;
+sub blog_config_template {
+    my ($plugin, $params, $scope) = @_;
+    my $app = MT->instance;
     my $blog_id = $app->param('blog_id');
-    return 1 unless $blog_id;
     my @objs = $app->model('mls_groups')->load({blog_id => 0});
     my ($this_blog) = grep $blog_id == $_->object_id, @objs;
     my %groups = map { ( $_->groupid, $_ ) } @objs;
@@ -23,7 +23,7 @@ sub prepare_blog_groups_list {
     }
     $params->{mls_all_groups} = \@out;
     $params->{mls_blog_group_set} = ($this_blog ? 1 : 0);
-    return 1;
+    return $plugin->load_tmpl("set_blog_group.tmpl");
 }
 
 sub set_blog_group {

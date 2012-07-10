@@ -13,7 +13,8 @@ object_types:
     mls_groups: MT::MlsObjectGroups
     mls_updates: MT::MlsUpdates
 
-blog_config_template: set_blog_group.tmpl
+blog_config_template: 
+    code: $MultiLangSite::MT::MlsPlugin::blog_config_template
 settings:
     blog_internal_name:
         default:
@@ -25,10 +26,6 @@ settings:
         default:
         scope: blog
 
-applications:
-    cms:
-        callbacks:
-            template_param.cfg_plugin: $MultiLangSite::MT::MlsPlugin::prepare_blog_groups_list
 callbacks:
     save_config_filter.MultiLangSite: $MultiLangSite::MT::MlsPlugin::set_blog_group
 
