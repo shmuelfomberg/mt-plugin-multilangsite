@@ -12,7 +12,7 @@ __PACKAGE__->install_properties ({
         'url'               => 'string(255) not null',
         'groupid'           => 'integer not null',
         'obj_rev'           => 'integer not null',
-        'is_primary'        => 'bool not null',
+        'is_primary'        => 'boolean not null',
     },
     indexes => {
         groupid => 1,

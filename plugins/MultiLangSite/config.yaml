@@ -24,3 +24,11 @@ settings:
     blog_groupid:
         default:
         scope: blog
+
+applications:
+    cms:
+        callbacks:
+            template_param.cfg_plugin: $MultiLangSite::MT::MlsPlugin::prepare_blog_groups_list
+callbacks:
+    save_config_filter.MultiLangSite: $MultiLangSite::MT::MlsPlugin::set_blog_group
+
