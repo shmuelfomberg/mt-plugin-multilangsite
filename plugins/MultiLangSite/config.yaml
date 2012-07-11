@@ -1,14 +1,14 @@
 id: MultiLangSite
 key: MultiLangSite
 name: Multi Language Sites Helper
-version: 1.0
+version: 1.1
 description: "Helps Authors and translators to colaborate, and keep multiple language sites in sync"
 author_name: Shmuel Fomberg
 author_link: http://www.shmuelfomberg.com/
 #doc_link: http://www.example.com/docs/
 #l10n_class: MyPlugin11::L10N
 
-schema_version: 0.01
+schema_version: 0.02
 object_types:
     mls_groups: MT::MlsObjectGroups
     mls_updates: MT::MlsUpdates
