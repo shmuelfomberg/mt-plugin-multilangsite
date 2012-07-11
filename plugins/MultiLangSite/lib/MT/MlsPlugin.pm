@@ -109,4 +109,37 @@ sub set_blog_group {
     return 1;
 }
 
+sub listing_info_html {
+    my ($prop, $obj, $app, $opts) = @_;
+    my $gclass = $app->model('mls_groups');
+    my $uclass = $app->model('mls_updates');
+    my $group_id = $obj->groupid;
+    my @all_group = $gclass->load({groupid => $group_id});
+    my @friends = grep { $_->object_id != $obj->object_id } @all_group;
+    my %updates = 
+        map { ( $_->object_id => $_ ) }
+        grep { ( $_->object_id != 0 ) and ( $_->id != $obj->id ) } 
+        $uclass->load({groupid => $group_id});
+    my @blog_ids = map $_->blog_id, @friends;
+    my @blogs = $gclass->load({ blog_id => 0, object_datasource => 'blog', object_id => \@blog_ids });
+    my %blogs = map { ( $_->object_id => $_ ) } @blogs;
+    my $out = '';
+    require MT::Util;
+    foreach my $friend (@friends) {
+        my $is_outdated = exists $updates{$friend->object_id} ? ' class="mls_outdated"' : '';
+        my $blog = $blogs{$friend->blog_id};
+        my ($short) = split '\\|', $blog->url;
+        $short = MT::Util::encode_html($short, 1);
+        my $url = $app->base . $app->mt_uri( 
+            mode => 'view', 
+            args => { 
+                '_type' => $friend->object_datasource,
+                'blog_id' => $friend->blog_id,
+                'id' => $friend->object_id,
+            });
+        $out .= '<span' . $is_outdated . '><a href="' . $url . '">' . $short . '</a></span>';
+    }
+    return $out;
+}
+
 1;

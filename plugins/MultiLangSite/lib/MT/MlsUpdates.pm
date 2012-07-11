@@ -24,4 +24,6 @@ __PACKAGE__->install_properties ({
     class_type  => 'mls_updates',
 });
 
+# if datasource='blog', url contains "Short name|Public name|group name"
+
 1;

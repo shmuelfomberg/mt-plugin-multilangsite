@@ -29,3 +29,31 @@ settings:
 callbacks:
     save_config_filter.MultiLangSite: $MultiLangSite::MT::MlsPlugin::set_blog_group
 
+listing_screens:
+    mls_updates:
+        object_label: Updates Listing
+        primary: info
+        default_sort_key: id
+        view: blog
+list_properties:
+    mls_updates:
+        object_datasource: 
+            label: Type
+            auto: 1
+            display: default
+        info:
+            label: Info
+            html: $MultiLangSite::MT::MlsPlugin::listing_info_html
+            display: force
+
+applications:
+    cms:
+        menus:
+            entry:updates:
+                label: Updates
+                order: 500
+                view: blog
+                mode: list
+                args:
+                    _type: mls_updates
+
