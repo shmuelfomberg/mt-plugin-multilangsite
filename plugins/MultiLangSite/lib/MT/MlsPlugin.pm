@@ -114,8 +114,10 @@ sub listing_info_html {
     my $gclass = $app->model('mls_groups');
     my $uclass = $app->model('mls_updates');
     my $group_id = $obj->groupid;
-    my @all_group = $gclass->load({groupid => $group_id});
-    my @friends = grep { $_->object_id != $obj->object_id } @all_group;
+    my $datasource = $obj->object_datasource;
+    my @all_entries = $app->model($datasource)->load(undef, 
+        { join => $gclass->join_on('object_id', { groupid => $group_id }) });
+    my @friends = grep { $_->id != $obj->object_id } @all_entries;
     my %updates = 
         map { ( $_->object_id => $_ ) }
         grep { ( $_->object_id != 0 ) and ( $_->id != $obj->id ) } 
@@ -126,20 +128,69 @@ sub listing_info_html {
     my $out = '';
     require MT::Util;
     foreach my $friend (@friends) {
-        my $is_outdated = exists $updates{$friend->object_id} ? ' class="mls_outdated"' : '';
+        my $is_outdated = exists $updates{$friend->id} ? ' class="mls_outdated"' : '';
         my $blog = $blogs{$friend->blog_id};
         my ($short) = split '\\|', $blog->url;
         $short = MT::Util::encode_html($short, 1);
+        my $title = MT::Util::encode_html($friend->title, 1);
         my $url = $app->base . $app->mt_uri( 
             mode => 'view', 
             args => { 
-                '_type' => $friend->object_datasource,
+                '_type' => $datasource,
                 'blog_id' => $friend->blog_id,
-                'id' => $friend->object_id,
+                'id' => $friend->id,
             });
-        $out .= '<span' . $is_outdated . '><a href="' . $url . '">' . $short . '</a></span>';
+        my ($new_url, $new_title);
+        if ($obj->object_id == 0) {
+            $new_title = 'clone';
+            $new_url = $app->base . $app->mt_uri( 
+                mode => 'mls_newobject', 
+                args => { 
+                    'blog_id' => $obj->blog_id,
+                    'groupid' => $obj->groupid,
+                    'clone'   => $friend->id,
+                });
+        }
+        else {
+            $new_title = 'diff';
+            $new_url = $app->base . $app->mt_uri( 
+                mode => 'mls_diff', 
+                args => { 
+                    'blog_id' => $obj->blog_id,
+                    'groupid' => $obj->groupid,
+                    'object'  => $friend->id,
+                });
+        }
+        $out .= "<span $is_outdated><a href=\"$url\">$short($title)</a></span>";
     }
     return $out;
+}
+
+sub listing_op_html {
+    my ($prop, $obj, $app, $opts) = @_;
+    if ($obj->object_id) {
+        my $url = $app->base . $app->mt_uri( 
+            mode => 'view', 
+            args => { 
+                '_type' => $obj->object_datasource,
+                'blog_id' => $obj->blog_id,
+                'id' => $obj->object_id,
+            });
+        return "<a href=\"$url\">Edit</a>";
+    }
+    else {
+        my $url = $app->base . $app->mt_uri( 
+            mode => 'mls_newobject', 
+            args => { 
+                'blog_id' => $obj->blog_id,
+                'groupid' => $obj->groupid,
+            });
+        return "<a href=\"$url\">Create new</a>";
+    }
+}
+
+sub mls_newobject {
+    my $app = shift;
 }
 
 1;

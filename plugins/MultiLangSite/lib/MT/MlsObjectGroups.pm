@@ -9,6 +9,7 @@ __PACKAGE__->install_properties ({
         'blog_id'           => 'integer not null',
         'object_id'         => 'integer not null',
         'object_datasource' => 'string(50) not null',
+        # if datasource='blog', url contains "Short name|Public name|group name"
         'url'               => 'string(255) not null',
         'groupid'           => 'integer not null',
         'obj_rev'           => 'integer not null',

@@ -41,10 +41,17 @@ list_properties:
             label: Type
             auto: 1
             display: default
+            order: 100
         info:
             label: Info
-            html: $MultiLangSite::MT::MlsPlugin::listing_info_html
+            html: '$MultiLangSite::MT::MlsPlugin::listing_info_html'
             display: force
+            order: 300
+        op:
+            label: Op
+            display: default
+            html: '$MultiLangSite::MT::MlsPlugin::listing_op_html'
+            order: 200
 
 applications:
     cms:
@@ -56,4 +63,8 @@ applications:
                 mode: list
                 args:
                     _type: mls_updates
+        methods:
+            mls_newobject: '$MultiLangSite::MT::MlsPlugin::mls_newobject'
+        callbacks:
+            cms_pre_load_filtered_list.mls_groups: '$MultiLangSite::MT::MlsPlugin::mls_filter_group_objects'
 
