@@ -1,17 +1,17 @@
 id: MultiLangSite
 key: MultiLangSite
-name: Multi Language Sites Helper
-version: 1.1
+name: Multi Language Sites Orginizer
+version: 1.2
 description: "Helps Authors and translators to colaborate, and keep multiple language sites in sync"
 author_name: Shmuel Fomberg
 author_link: http://www.shmuelfomberg.com/
 #doc_link: http://www.example.com/docs/
 #l10n_class: MyPlugin11::L10N
 
-schema_version: 0.02
+schema_version: 0.03
 object_types:
     mls_groups: MT::MlsObjectGroups
-    mls_updates: MT::MlsUpdates
+    # mls_updates: MT::MlsUpdates
 
 blog_config_template: 
     code: $MultiLangSite::MT::MlsPlugin::blog_config_template
@@ -29,42 +29,42 @@ settings:
 callbacks:
     save_config_filter.MultiLangSite: $MultiLangSite::MT::MlsPlugin::set_blog_group
 
-listing_screens:
-    mls_updates:
-        object_label: Updates Listing
-        primary: info
-        default_sort_key: id
-        view: blog
-list_properties:
-    mls_updates:
-        object_datasource: 
-            label: Type
-            auto: 1
-            display: default
-            order: 100
-        info:
-            label: Info
-            html: '$MultiLangSite::MT::MlsPlugin::listing_info_html'
-            display: force
-            order: 300
-        op:
-            label: Op
-            display: default
-            html: '$MultiLangSite::MT::MlsPlugin::listing_op_html'
-            order: 200
+# listing_screens:
+#     mls_updates:
+#         object_label: Updates Listing
+#         primary: info
+#         default_sort_key: id
+#         view: blog
+# list_properties:
+#     mls_updates:
+#         object_datasource: 
+#             label: Type
+#             auto: 1
+#             display: default
+#             order: 100
+#         info:
+#             label: Info
+#             html: '$MultiLangSite::MT::MlsPlugin::listing_info_html'
+#             display: force
+#             order: 300
+#         op:
+#             label: Op
+#             display: default
+#             html: '$MultiLangSite::MT::MlsPlugin::listing_op_html'
+#             order: 200
 
-applications:
-    cms:
-        menus:
-            entry:updates:
-                label: Updates
-                order: 500
-                view: blog
-                mode: list
-                args:
-                    _type: mls_updates
-        methods:
-            mls_newobject: '$MultiLangSite::MT::MlsPlugin::mls_newobject'
-        callbacks:
-            cms_pre_load_filtered_list.mls_groups: '$MultiLangSite::MT::MlsPlugin::mls_filter_group_objects'
+# applications:
+#     cms:
+#         menus:
+#             entry:updates:
+#                 label: Updates
+#                 order: 500
+#                 view: blog
+#                 mode: list
+#                 args:
+#                     _type: mls_updates
+#         methods:
+#             mls_newobject: '$MultiLangSite::MT::MlsPlugin::mls_newobject'
+#         callbacks:
+#             cms_pre_load_filtered_list.mls_groups: '$MultiLangSite::MT::MlsPlugin::mls_filter_group_objects'
 

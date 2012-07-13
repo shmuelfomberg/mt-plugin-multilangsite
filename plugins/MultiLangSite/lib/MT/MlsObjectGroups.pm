@@ -14,6 +14,8 @@ __PACKAGE__->install_properties ({
         'groupid'           => 'integer not null',
         'obj_rev'           => 'integer not null',
         'is_primary'        => 'boolean not null',
+        'is_outdated'       => 'boolean not null',
+        'update_peers'      => 'string(255) not null',
     },
     indexes => {
         groupid => 1,

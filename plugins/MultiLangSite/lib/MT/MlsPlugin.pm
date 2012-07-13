@@ -75,10 +75,11 @@ sub set_blog_group {
                 $obj_g->blog_id($blog_id);
                 $obj_g->object_id($obj->id);
                 $obj_g->object_datasource($obj->datasource);
-                $obj_g->url(join('|', $data->{blog_internal_name}, $data->{blog_external_name}, $name));
+                $obj_g->url($obj->permalink());
                 $obj_g->groupid(0);
                 $obj_g->obj_rev($obj->current_revision);
                 $obj_g->is_primary(0);
+                $obj_g->update_peers('');
                 $obj_g->save;
                 $obj_g->groupid($obj_g->id);
                 $obj_g->update;
@@ -88,22 +89,19 @@ sub set_blog_group {
     else {
         # old group, let's create a todo listing
         my @blogs = $gclass->load({ blog_id=>0, object_datasource=>'blog', groupid=>$id });
-        my @blog_ids = grep { $_ != $blog_id } map $_->object_id, @blogs;
-        my %seen_groups;
-        my $uclass = $app->model('mls_updates');
-        my $iter = $gclass->load_iter({ blog_id=>\@blog_ids });
+        my ($peer_blog_id) = grep { $_ != $blog_id } map $_->object_id, @blogs;
+        my $iter = $gclass->load_iter({ blog_id => $peer_blog_id });
         while (my $obj = $iter->()) {
-            next if exists $seen_groups{$obj->groupid};
-            $seen_groups{$obj->groupid} = 1;
-            my $todo = $uclass->new();
-            $todo->blog_id($blog_id);
-            $todo->original_object_id(0);
-            $todo->from_obj_rev(0);
-            $todo->to_obj_rev(0);
-            $todo->object_id(0);
-            $todo->object_datasource($obj->object_datasource);
-            $todo->groupid($obj->groupid);
-            $todo->save;
+            my $obj_g = $gclass->new();
+            $obj_g->blog_id($blog_id);
+            $obj_g->object_id(0);
+            $obj_g->object_datasource($obj->datasource);
+            $obj_g->url('');
+            $obj_g->groupid($obj->groupid);
+            $obj_g->obj_rev(0);
+            $obj_g->is_primary(0);
+            $obj_g->update_peers('');
+            $obj_g->save;
         }
     }
     return 1;
