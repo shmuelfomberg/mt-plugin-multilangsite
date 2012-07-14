@@ -224,6 +224,39 @@ sub mls_filter_group_objects {
 
 sub mls_newobject {
     my $app = shift;
+    my $blog = $app->blog;
+    return $app->errtrans('Invalid Request.') unless $blog;
+    my $blog_id = $blog->id;
+    my $group_id = $app->param('groupid');
+    my $clone_id = $app->param('clone');
+
+    my $gclass = $app->model('mls_groups');
+    my @all_group = $gclass->load( { groupid => $group_id } );
+    my ($todo) = grep { $_->blog_id == $blog_id } @all_group;
+    return $app->errtrans('Invalid Request.') unless $todo and ($todo->object_id == 0);
+    my $datasource = $todo->object_datasource;
+    my $dclass =  $app->model($datasource);
+    my ($clone_entry, $new_entry);
+    if ($clone_id) {
+        my ($clone_g) = grep { $_->object_id == $clone_id } @all_group;
+        return $app->errtrans('Invalid Request.') unless $clone_g;
+        $clone_entry = $dclass->load(clone_id);
+        $new_entry = $clone_entry->clone;        
+        delete $new_entry->{column_values}->{id};
+        delete $new_entry->{changed_cols}->{id};
+    }
+    else {
+        $new_entry = $dclass->new();
+    }
+    $new_entry->save;
+    my $new_id = $new_entry->id;
+    return $app->redirect( $app->uri(
+        mode => 'view', 
+        args => { 
+            '_type' => $datasource,
+            'blog_id' => $blog_id,
+            'id' => $new_id,
+        }));    
 }
 
 sub mls_diff {
