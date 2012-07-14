@@ -60,7 +60,8 @@ sub set_blog_group {
     $blog_g->url(join('|', $data->{blog_internal_name}, $data->{blog_external_name}, $name));
     $blog_g->groupid($id);
     $blog_g->obj_rev(0);
-    $blog_g->is_primary(0);
+    $blog_g->update_peer_id(0);
+    $blog_g->update_peer_rev(0);
     $blog_g->save;
 
     if ($id==0) {
@@ -78,8 +79,8 @@ sub set_blog_group {
                 $obj_g->url($obj->permalink());
                 $obj_g->groupid(0);
                 $obj_g->obj_rev($obj->current_revision);
-                $obj_g->is_primary(0);
-                $obj_g->update_peers('');
+                $obj_g->update_peer_id(0);
+                $obj_g->update_peer_rev(0);
                 $obj_g->save;
                 $obj_g->groupid($obj_g->id);
                 $obj_g->update;
@@ -99,8 +100,8 @@ sub set_blog_group {
             $obj_g->url('');
             $obj_g->groupid($obj->groupid);
             $obj_g->obj_rev(0);
-            $obj_g->is_primary(0);
-            $obj_g->update_peers('');
+            $obj_g->update_peer_id(0);
+            $obj_g->update_peer_rev(0);
             $obj_g->save;
         }
     }
@@ -110,33 +111,46 @@ sub set_blog_group {
 sub listing_info_html {
     my ($prop, $obj, $app, $opts) = @_;
     my $gclass = $app->model('mls_groups');
-    my $uclass = $app->model('mls_updates');
     my $group_id = $obj->groupid;
     my $datasource = $obj->object_datasource;
-    my @all_entries = $app->model($datasource)->load(undef, 
-        { join => $gclass->join_on('object_id', { groupid => $group_id }) });
+
+    my @all_group = $gclass->load( { groupid => $group_id } );
+    my @all_entries_ids = grep $_, map $_->object_id, @all_group;
+    my @all_entries = $app->model($datasource)->load({ id => \@all_entries_ids });
     my @friends = grep { $_->id != $obj->object_id } @all_entries;
-    my %updates = 
-        map { ( $_->object_id => $_ ) }
-        grep { ( $_->object_id != 0 ) and ( $_->id != $obj->id ) } 
-        $uclass->load({groupid => $group_id});
     my @blog_ids = map $_->blog_id, @friends;
-    my @blogs = $gclass->load({ blog_id => 0, object_datasource => 'blog', object_id => \@blog_ids });
-    my %blogs = map { ( $_->object_id => $_ ) } @blogs;
+    my %blogs = map { ( $_->object_id => $_ ) } 
+        $gclass->load({ blog_id => 0, object_datasource => 'blog', object_id => \@blog_ids });
+    my %group_data = map { ( $_->object_id => $_ ) } @all_group;
+    my $update_peer_id = $obj->update_peer_id;
+    my $update_peer;
+    if ($update_peer_id) {
+        ($update_peer) = grep { $_->id == $update_peer_id } @friends;
+        @friends = grep { $_->id != $update_peer_id } @friends;
+    }
+
     my $out = '';
     require MT::Util;
-    foreach my $friend (@friends) {
-        my $is_outdated = exists $updates{$friend->id} ? ' class="mls_outdated"' : '';
-        my $blog = $blogs{$friend->blog_id};
+
+    my $printer = sub {
+        my ($entry, $is_peer) = @_;
+        my @add_classes;
+        push @add_classes, "mls_outdated" 
+            if $group_data{$entry->id}->is_outdated;
+        push @add_classes, "mls_was_update"
+            if $is_peer and 
+                ($group_data{$entry->id}->obj_rev != $obj->update_peer_rev);
+        my $class_set = @add_classes ? ' class="' . join(' ', @add_classes) . '"' : '';
+        my $blog = $blogs{$entry->blog_id};
         my ($short) = split '\\|', $blog->url;
         $short = MT::Util::encode_html($short, 1);
-        my $title = MT::Util::encode_html($friend->title, 1);
+        my $title = MT::Util::encode_html($entry->title, 1);
         my $url = $app->base . $app->mt_uri( 
             mode => 'view', 
             args => { 
                 '_type' => $datasource,
-                'blog_id' => $friend->blog_id,
-                'id' => $friend->id,
+                'blog_id' => $entry->blog_id,
+                'id' => $entry->id,
             });
         my ($new_url, $new_title);
         if ($obj->object_id == 0) {
@@ -146,20 +160,32 @@ sub listing_info_html {
                 args => { 
                     'blog_id' => $obj->blog_id,
                     'groupid' => $obj->groupid,
-                    'clone'   => $friend->id,
+                    'clone'   => $entry->id,
                 });
         }
-        else {
+        elsif ($is_peer) {
             $new_title = 'diff';
             $new_url = $app->base . $app->mt_uri( 
                 mode => 'mls_diff', 
                 args => { 
                     'blog_id' => $obj->blog_id,
                     'groupid' => $obj->groupid,
-                    'object'  => $friend->id,
+                    'object'  => $entry->id,
                 });
         }
-        $out .= "<span $is_outdated><a href=\"$url\">$short($title)</a></span>";
+        my $new_html = '';
+        if ($new_title) {
+            $new_html = " <a href=\"$new_url\">($new_title)</a>";
+        }
+        $out .= "<span $class_set><a href=\"$url\">$short($title)</a>$new_html</span>";
+    };
+    $printer->($update_peer, 1) if $update_peer;
+    if (@friends) {
+        $out .= " Others: [";
+        foreach my $friend (@friends) {
+            $printer->($friend, 0);
+        }
+        $out .= "]";
     }
     return $out;
 }
@@ -167,6 +193,8 @@ sub listing_info_html {
 sub listing_op_html {
     my ($prop, $obj, $app, $opts) = @_;
     if ($obj->object_id) {
+        my $datasource = $obj->object_datasource;
+        my $entry = $app->model($datasource)->load($obj->object_id);
         my $url = $app->base . $app->mt_uri( 
             mode => 'view', 
             args => { 
@@ -174,7 +202,8 @@ sub listing_op_html {
                 'blog_id' => $obj->blog_id,
                 'id' => $obj->object_id,
             });
-        return "<a href=\"$url\">Edit</a>";
+        my $title = $entry->title;
+        return "<a href=\"$url\">Edit $title</a>";
     }
     else {
         my $url = $app->base . $app->mt_uri( 
@@ -187,7 +216,17 @@ sub listing_op_html {
     }
 }
 
+sub mls_filter_group_objects {
+    my ($cb, $app, $filter, $options, $cols) = @_;
+    $options->{terms}->{is_outdated} = 1;
+    return 1;
+}
+
 sub mls_newobject {
+    my $app = shift;
+}
+
+sub mls_diff {
     my $app = shift;
 }
 

@@ -13,18 +13,18 @@ __PACKAGE__->install_properties ({
         'url'               => 'string(255) not null',
         'groupid'           => 'integer not null',
         'obj_rev'           => 'integer not null',
-        'is_primary'        => 'boolean not null',
         'is_outdated'       => 'boolean not null',
-        'update_peers'      => 'string(255) not null',
+        'update_peer_id'    => 'integer not null',
+        'update_peer_rev'   => 'integer not null',
     },
     indexes => {
         groupid => 1,
         blog_id => 1,
         ds_obj => { columns => [qw{ object_datasource object_id }] }, 
     },
-    defaults => {
-        is_primary => 0,
-    },
+    # defaults => {
+    #     update_peer_id => 0,
+    # },
     datasource  => 'mls_groups',
     primary_key => 'id',
     class_type  => 'mls_groups',
