@@ -171,6 +171,8 @@ sub listing_info_html {
                     'blog_id' => $obj->blog_id,
                     'groupid' => $obj->groupid,
                     'object'  => $entry->id,
+                    'rev_from' => $obj->update_peer_rev,
+                    'rev_to'   => $group_data{$entry->id}->obj_rev,
                 });
         }
         my $new_html = '';
@@ -236,27 +238,141 @@ sub mls_newobject {
     return $app->errtrans('Invalid Request.') unless $todo and ($todo->object_id == 0);
     my $datasource = $todo->object_datasource;
     my $dclass =  $app->model($datasource);
-    my ($clone_entry, $new_entry);
+    my $new_id;
     if ($clone_id) {
         my ($clone_g) = grep { $_->object_id == $clone_id } @all_group;
         return $app->errtrans('Invalid Request.') unless $clone_g;
-        $clone_entry = $dclass->load(clone_id);
+        my $clone_entry = $dclass->load(clone_id);
         $new_entry = $clone_entry->clone;        
         delete $new_entry->{column_values}->{id};
         delete $new_entry->{changed_cols}->{id};
+        $new_entry->blog_id($blog_id);
+        $new_entry->save;
+        $new_id = $new_entry->id;
+        $todo->object_id($new_id);
+        $todo->save;
     }
-    else {
-        $new_entry = $dclass->new();
-    }
-    $new_entry->save;
-    my $new_id = $new_entry->id;
     return $app->redirect( $app->uri(
         mode => 'view', 
         args => { 
             '_type' => $datasource,
             'blog_id' => $blog_id,
-            'id' => $new_id,
-        }));    
+            ($new_id ? ( 'id' => $new_id ) : ( mls_group => $group_id )),
+        }));
+}
+
+sub cms_edit_entry {
+    my ($cb, $app, $id, $obj, $param) = @_;
+    my $gclass = $app->model('mls_groups');
+    my $blog_id = $app->blog->id;
+    my $datasource = $obj->datasource;
+    my ($group_obj, @all_group);
+    if ($param->{new_object}) {
+        my $group_id = $app->param('mls_group');
+        return 1 unless $group_id;
+        @all_group = $gclass->load( { groupid => $group_id } );
+        ($group_obj) = grep { $_->blog_id == $blog_id } @all_group;
+        return 1 unless $group_obj->object_id == 0;
+        my ($friend) = grep { $_->object_id != 0 } @all_group;
+        return 1 unless $friend;
+        my $f_obj = $app->model($datasource)->load($friend->id);
+        return 1 unless $f_obj;
+        $param->{basename} = $f_obj->basename;
+    }
+    else {
+        $group_obj = $gclass->load({ 
+            blog_id => $blog_id, 
+            object_id => $obj->id, 
+            object_datasource => $datasource 
+        });
+        return 1 unless $group_obj;
+        @all_group = $gclass->load( { groupid => $group_obj->groupid } );
+    }
+    $param->{mls_group} = $group_obj->groupid;
+    $param->{mls_is_outdated} = $group_obj->is_outdated;
+    my @peer_blog_ids = grep $_ != $blog_id, map $_->blog_id, @all_group;
+    my %group_blogs = 
+        map { ( $_->object_id => $_ ) } 
+        $gclass->load({ 
+            blog_id => 0, 
+            object_id => \@peer_blog_ids,
+            object_datasource => 'blog',
+        });
+
+    my @peer_recs;
+    foreach my $peer (@all_group) {
+        next unless $peer->object_id;
+        next if $peer->object_id == $group_obj->object_id;
+        my ($short) = split '\\|', $group_blogs{$peer->blog_id}->url;
+        my $rec = {
+            id => $peer->object_id,
+            blog_id => $peer->blog_id,
+            blog_short => $short,
+        };
+        if ($group_obj->update_peer_id == $peer->object_id) {
+            $rec->{updated_from_this} = 1;
+            $param->{mls_updated_from} = $rec;
+            my $from = $group_obj->update_peer_rev;
+            my $to = $peer->obj_rev;
+            if ($from != $to) {
+                $rec->{rev_from} = $from;
+                $rec->{rev_to} = $to;
+            }
+        }
+        push @peer_recs, $rec;
+    }
+    $param->{mls_peer_recs} = \@peer_recs;
+    return 1;
+}
+
+sub cms_edit_entry_template {
+    my ($cb, $app, $param, $tmpl) = @_;
+    my $group_id = $params->{mls_group};
+    return 1 unless $group_id;
+    my $widget = $tmpl->createElement('mtapp:widget', {
+        id => 'mls_staus_widget',
+        label => 'Group Status',
+    });
+    my $entry_status = $param->{mls_is_outdated} ? 'outdated' : 'up to date';
+    my $last_updated = '';
+    if (my $rec = $param->{mls_updated_from}) {
+        $last_updated = '<br/>Last updated from ' . $rec->{blog_short};
+        if ($rec->{rev_to}) {
+            my $url = $app->base . $app->mt_uri( 
+                mode => 'mls_diff', 
+                args => { 
+                    'blog_id'  => $obj->blog_id,
+                    'groupid'  => $obj->groupid,
+                    'object'   => $entry->id,
+                    'rev_from' => $rec->{rev_from},
+                    'rev_to'   => $rec->{rev_to},
+                });
+            $last_updated .= '<a href="'.$url.'">diff</a>'
+        }
+    }
+    $widget->appendChild(
+        $tmpl->createTextNode(
+            '<div class="status">'.
+                'Entry is ' . $entry_status . $last_updated .
+            '</div>')
+    );
+    my $select = $tmpl->createElement('app:setting', {
+        id => 'mls_set_status',
+        label => 'Set Entry Status',
+        label_class => 'top-label',
+        });
+    my $select_code = '<select id="mls_status_select" name="mls_status_select">';
+    $select_code .= '<option value="0" selected>Set entry status...</option>'
+    my $peer_recs = $param->{mls_peer_recs};
+    foreach my $rec (@$peer_recs) {
+        my $val = "x" . $rec->{blog_id} . 'x' . $rec->{id};
+        $select_code .= '<option value="'.$val.'">Match to '.$rec->{blog_short}.'</option>';
+    }
+    $select_code .= '</select>';
+    $select->innerHTML($select_code);
+    $widget->appendChild($select);
+    $tmpl->insertAfter($widget, $tmpl->getElementById('entry-status-widget'));
+    return 1;
 }
 
 sub mls_diff {

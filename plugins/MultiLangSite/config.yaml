@@ -67,4 +67,7 @@ applications:
             mls_diff: '$MultiLangSite::MT::MlsPlugin::mls_diff'
         callbacks:
             cms_pre_load_filtered_list.mls_groups: '$MultiLangSite::MT::MlsPlugin::mls_filter_group_objects'
+            template_param.edit_entry: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry_template'
+            cms_edit.page: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry'
+            cms_edit.entry: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry'
 
