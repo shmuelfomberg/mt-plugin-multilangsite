@@ -242,8 +242,8 @@ sub mls_newobject {
     if ($clone_id) {
         my ($clone_g) = grep { $_->object_id == $clone_id } @all_group;
         return $app->errtrans('Invalid Request.') unless $clone_g;
-        my $clone_entry = $dclass->load(clone_id);
-        $new_entry = $clone_entry->clone;        
+        my $clone_entry = $dclass->load($clone_id);
+        my $new_entry = $clone_entry->clone;        
         delete $new_entry->{column_values}->{id};
         delete $new_entry->{changed_cols}->{id};
         $new_entry->blog_id($blog_id);
@@ -327,7 +327,7 @@ sub cms_edit_entry {
 
 sub cms_edit_entry_template {
     my ($cb, $app, $param, $tmpl) = @_;
-    my $group_id = $params->{mls_group};
+    my $group_id = $param->{mls_group};
     return 1 unless $group_id;
     my $widget = $tmpl->createElement('mtapp:widget', {
         id => 'mls_staus_widget',
@@ -341,9 +341,9 @@ sub cms_edit_entry_template {
             my $url = $app->base . $app->mt_uri( 
                 mode => 'mls_diff', 
                 args => { 
-                    'blog_id'  => $obj->blog_id,
-                    'groupid'  => $obj->groupid,
-                    'object'   => $entry->id,
+                    'blog_id'  => $app->blog->id,
+                    'groupid'  => $group_id,
+                    'object'   => $rec->{id},
                     'rev_from' => $rec->{rev_from},
                     'rev_to'   => $rec->{rev_to},
                 });
@@ -362,7 +362,7 @@ sub cms_edit_entry_template {
         label_class => 'top-label',
         });
     my $select_code = '<select id="mls_status_select" name="mls_status_select">';
-    $select_code .= '<option value="0" selected>Set entry status...</option>'
+    $select_code .= '<option value="0" selected>Set entry status...</option>';
     my $peer_recs = $param->{mls_peer_recs};
     foreach my $rec (@$peer_recs) {
         my $val = "x" . $rec->{blog_id} . 'x' . $rec->{id};
