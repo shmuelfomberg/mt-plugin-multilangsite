@@ -60,9 +60,10 @@ sub set_blog_group {
     $blog_g->url(join('|', $data->{blog_internal_name}, $data->{blog_external_name}, $name));
     $blog_g->groupid($id);
     $blog_g->obj_rev(0);
+    $blog_g->is_outdated(0);
     $blog_g->update_peer_id(0);
     $blog_g->update_peer_rev(0);
-    $blog_g->save;
+    $blog_g->save or die $blog_g->errstr;
 
     if ($id==0) {
         # new group, need new number
@@ -79,6 +80,7 @@ sub set_blog_group {
                 $obj_g->url($obj->permalink());
                 $obj_g->groupid(0);
                 $obj_g->obj_rev($obj->current_revision);
+                $obj_g->is_outdated(0);
                 $obj_g->update_peer_id(0);
                 $obj_g->update_peer_rev(0);
                 $obj_g->save;
@@ -96,10 +98,11 @@ sub set_blog_group {
             my $obj_g = $gclass->new();
             $obj_g->blog_id($blog_id);
             $obj_g->object_id(0);
-            $obj_g->object_datasource($obj->datasource);
+            $obj_g->object_datasource($obj->object_datasource);
             $obj_g->url('');
             $obj_g->groupid($obj->groupid);
             $obj_g->obj_rev(0);
+            $obj_g->is_outdated(1);
             $obj_g->update_peer_id(0);
             $obj_g->update_peer_rev(0);
             $obj_g->save;
@@ -121,7 +124,7 @@ sub listing_info_html {
     my @blog_ids = map $_->blog_id, @friends;
     my %blogs = map { ( $_->object_id => $_ ) } 
         $gclass->load({ blog_id => 0, object_datasource => 'blog', object_id => \@blog_ids });
-    my %group_data = map { ( $_->object_id => $_ ) } @all_group;
+    my %group_data = map { ( $_->object_id => $_ ) } grep $_->object_id, @all_group;
     my $update_peer_id = $obj->update_peer_id;
     my $update_peer;
     if ($update_peer_id) {
@@ -209,10 +212,11 @@ sub listing_op_html {
     }
     else {
         my $url = $app->base . $app->mt_uri( 
-            mode => 'mls_newobject', 
+            mode => 'view', 
             args => { 
                 'blog_id' => $obj->blog_id,
-                'groupid' => $obj->groupid,
+                'mls_group' => $obj->groupid,
+                '_type'   => $obj->object_datasource,
             });
         return "<a href=\"$url\">Create new</a>";
     }
@@ -265,7 +269,7 @@ sub cms_edit_entry {
     my ($cb, $app, $id, $obj, $param) = @_;
     my $gclass = $app->model('mls_groups');
     my $blog_id = $app->blog->id;
-    my $datasource = $obj->datasource;
+    my $datasource;
     my ($group_obj, @all_group);
     if ($param->{new_object}) {
         my $group_id = $app->param('mls_group');
@@ -275,6 +279,7 @@ sub cms_edit_entry {
         return 1 unless $group_obj->object_id == 0;
         my ($friend) = grep { $_->object_id != 0 } @all_group;
         return 1 unless $friend;
+        $datasource = $group_obj->object_datasource;
         my $f_obj = $app->model($datasource)->load($friend->id);
         return 1 unless $f_obj;
         $param->{basename} = $f_obj->basename;
@@ -287,6 +292,7 @@ sub cms_edit_entry {
         });
         return 1 unless $group_obj;
         @all_group = $gclass->load( { groupid => $group_obj->groupid } );
+        $datasource = $obj->datasource;
     }
     $param->{mls_group} = $group_obj->groupid;
     $param->{mls_is_outdated} = $group_obj->is_outdated;

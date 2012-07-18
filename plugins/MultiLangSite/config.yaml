@@ -61,7 +61,7 @@ applications:
                 view: blog
                 mode: list
                 args:
-                    _type: mls_updates
+                    _type: mls_groups
         methods:
             mls_newobject: '$MultiLangSite::MT::MlsPlugin::mls_newobject'
             mls_diff: '$MultiLangSite::MT::MlsPlugin::mls_diff'
