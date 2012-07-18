@@ -280,7 +280,7 @@ sub cms_edit_entry {
         my ($friend) = grep { $_->object_id != 0 } @all_group;
         return 1 unless $friend;
         $datasource = $group_obj->object_datasource;
-        my $f_obj = $app->model($datasource)->load($friend->id);
+        my $f_obj = $app->model($datasource)->load($friend->object_id);
         return 1 unless $f_obj;
         $param->{basename} = $f_obj->basename;
     }
@@ -335,7 +335,7 @@ sub cms_edit_entry_template {
     my ($cb, $app, $param, $tmpl) = @_;
     my $group_id = $param->{mls_group};
     return 1 unless $group_id;
-    my $widget = $tmpl->createElement('mtapp:widget', {
+    my $widget = $tmpl->createElement('app:widget', {
         id => 'mls_staus_widget',
         label => 'Group Status',
     });
@@ -358,6 +358,7 @@ sub cms_edit_entry_template {
     }
     $widget->appendChild(
         $tmpl->createTextNode(
+            '<input type="hidden" name="mls_group" value="'.$group_id.'" />'.
             '<div class="status">'.
                 'Entry is ' . $entry_status . $last_updated .
             '</div>')
@@ -366,9 +367,13 @@ sub cms_edit_entry_template {
         id => 'mls_set_status',
         label => 'Set Entry Status',
         label_class => 'top-label',
+        show_label => 0,
         });
     my $select_code = '<select id="mls_status_select" name="mls_status_select">';
     $select_code .= '<option value="0" selected>Set entry status...</option>';
+    if (not $param->{mls_is_outdated}) {
+        $select_code .= '<option value="new_version" selected>Declare new version</option>';
+    }
     my $peer_recs = $param->{mls_peer_recs};
     foreach my $rec (@$peer_recs) {
         my $val = "x" . $rec->{blog_id} . 'x' . $rec->{id};
