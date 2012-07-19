@@ -386,6 +386,112 @@ sub cms_edit_entry_template {
     return 1;
 }
 
+sub cms_post_save_entry_handle_others {
+    my ($app, $obj, $g_obj) = @_;
+    my $group_id = $g_obj->groupid;
+    my $gclass = $app->model('mls_groups');
+    my $status_select = $app->param('mls_status_select') || '';
+    my $dirty = 0;
+
+    my @others = 
+        grep { $_->object_id and ( $_->object_id != $obj->id ) } 
+        $gclass->load({ object_datasource => $obj->datasource, groupid => $group_id });
+    if (not @others) {
+        # no others - this objects is always updated and in the last version
+        $g_obj->obj_rev($obj->current_revision);
+        $dirty = 1;
+    }
+    elsif ($status_select eq 'new_version') {
+        $g_obj->is_outdated(0);
+        foreach my $o (@others) {
+            $o->is_outdated(1);
+            $o->save;
+        }
+    }
+    elsif ($status_select =~ m/^x(\d+)x(\d+)$/) {
+        my $o_blog_id = $1;
+        my $o_obj_id = $2;
+        my ($o_obj_g) = grep { $_->object_id == $o_obj_id } @others;
+        return 1 unless $o_obj_g;
+        $g_obj->obj_rev($obj->current_revision);
+        $g_obj->update_peer_id($o_obj_id);
+        $g_obj->update_peer_rev($o_obj_g->obj_rev);
+        $dirty = 1;
+    }
+    return $dirty;
+}
+
+sub cms_post_save_entry {
+    my ($cb, $app, $obj, $original) = @_;
+    my $gclass = $app->model('mls_groups');
+    my $group_id = $app->param('mls_group');
+    
+    my $g_obj;
+
+    if ($g_obj = $gclass->load({ blog_id => $obj->blog_id, object_id => $obj->id, object_datasource => $obj->datasource })) {
+        $group_id = $g_obj->groupid;
+        my $dirty = cms_post_save_entry_handle_others($app, $obj, $g_obj);
+        if ($obj->basename ne $original->basename) {
+            $g_obj->url($obj->permalink());
+            $dirty = 1;
+        }
+        $g_obj->save if $dirty;
+        return 1;
+    }
+    elsif ($original->id) {
+        # if this is not a new object, and don't have a group, then it probably should not be in a group
+        return 1;
+    }
+
+    if ($group_id) {
+        # a new object, but we know to which group it belong
+        $g_obj = $gclass->load({ blog_id => $obj->blog_id, object_id => 0, object_datasource => $obj->datasource });
+        return 1 unless $g_obj;
+        $g_obj->object_id($obj->id);
+        $g_obj->url($obj->permalink());
+        cms_post_save_entry_handle_others($app, $obj, $g_obj);
+        $g_obj->save;
+    }
+    else {
+        # a new object, without a group relation - create group if the blog is in group
+        my $g_blog = $gclass->load({ blog_id => 0, object_id => $obj->blog_id, object_datasource => 'blog' });
+        # if the blog is not in group, we shouldn't do a thing
+        return 1 unless $g_blog;
+        my @all_blogs = $gclass->load({ blog_id => 0, object_datasource => 'blog', groupid => $g_blog->groupid });
+        my @other_blogs = grep { $_->object_id != $g_blog->object_id } @all_blogs;
+        my $g_obj = $gclass->new();
+        
+        $g_obj->blog_id($obj->blog_id);
+        $g_obj->object_id($obj->id);
+        $g_obj->object_datasource($obj->datasource);
+        $g_obj->url($obj->permalink());
+        $g_obj->groupid(0);
+        $g_obj->obj_rev($obj->current_revision);
+        $g_obj->is_outdated(0);
+        $g_obj->update_peer_id(0);
+        $g_obj->update_peer_rev(0);
+        $g_obj->save;
+        $g_obj->groupid($g_obj->id);
+        $g_obj->update;
+        $group_id = $g_obj->groupid;
+
+        foreach my $blog (@other_blogs) {
+            my $s_obj = $gclass->new();
+            $g_obj->blog_id($blog->object_id);
+            $g_obj->object_id(0);
+            $g_obj->object_datasource($obj->datasource);
+            $g_obj->url('');
+            $g_obj->groupid($group_id);
+            $g_obj->obj_rev(0);
+            $g_obj->is_outdated(1);
+            $g_obj->update_peer_id(0);
+            $g_obj->update_peer_rev(0);
+            $g_obj->save;
+        }
+    }
+    return 1;
+}
+
 sub mls_diff {
     my $app = shift;
 }
