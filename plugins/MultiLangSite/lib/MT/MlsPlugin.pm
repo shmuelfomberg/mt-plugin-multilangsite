@@ -159,11 +159,12 @@ sub listing_info_html {
         if ($obj->object_id == 0) {
             $new_title = 'clone';
             $new_url = $app->base . $app->mt_uri( 
-                mode => 'mls_newobject', 
+                mode => 'view', 
                 args => { 
-                    'blog_id' => $obj->blog_id,
-                    'groupid' => $obj->groupid,
-                    'clone'   => $entry->id,
+                    '_type'     => $datasource,
+                    'blog_id'   => $obj->blog_id,
+                    'mls_group' => $obj->groupid,
+                    'mls_clone' => $entry->id,
                 });
         }
         elsif ($is_peer) {
@@ -171,9 +172,9 @@ sub listing_info_html {
             $new_url = $app->base . $app->mt_uri( 
                 mode => 'mls_diff', 
                 args => { 
-                    'blog_id' => $obj->blog_id,
-                    'groupid' => $obj->groupid,
-                    'object'  => $entry->id,
+                    'blog_id'  => $obj->blog_id,
+                    'groupid'  => $obj->groupid,
+                    'object'   => $entry->id,
                     'rev_from' => $obj->update_peer_rev,
                     'rev_to'   => $group_data{$entry->id}->obj_rev,
                 });
@@ -228,43 +229,6 @@ sub mls_filter_group_objects {
     return 1;
 }
 
-sub mls_newobject {
-    my $app = shift;
-    my $blog = $app->blog;
-    return $app->errtrans('Invalid Request.') unless $blog;
-    my $blog_id = $blog->id;
-    my $group_id = $app->param('groupid');
-    my $clone_id = $app->param('clone');
-
-    my $gclass = $app->model('mls_groups');
-    my @all_group = $gclass->load( { groupid => $group_id } );
-    my ($todo) = grep { $_->blog_id == $blog_id } @all_group;
-    return $app->errtrans('Invalid Request.') unless $todo and ($todo->object_id == 0);
-    my $datasource = $todo->object_datasource;
-    my $dclass =  $app->model($datasource);
-    my $new_id;
-    if ($clone_id) {
-        my ($clone_g) = grep { $_->object_id == $clone_id } @all_group;
-        return $app->errtrans('Invalid Request.') unless $clone_g;
-        my $clone_entry = $dclass->load($clone_id);
-        my $new_entry = $clone_entry->clone;        
-        delete $new_entry->{column_values}->{id};
-        delete $new_entry->{changed_cols}->{id};
-        $new_entry->blog_id($blog_id);
-        $new_entry->save;
-        $new_id = $new_entry->id;
-        $todo->object_id($new_id);
-        $todo->save;
-    }
-    return $app->redirect( $app->uri(
-        mode => 'view', 
-        args => { 
-            '_type' => $datasource,
-            'blog_id' => $blog_id,
-            ($new_id ? ( 'id' => $new_id ) : ( mls_group => $group_id )),
-        }));
-}
-
 sub cms_edit_entry {
     my ($cb, $app, $id, $obj, $param) = @_;
     my $gclass = $app->model('mls_groups');
@@ -277,12 +241,31 @@ sub cms_edit_entry {
         @all_group = $gclass->load( { groupid => $group_id } );
         ($group_obj) = grep { $_->blog_id == $blog_id } @all_group;
         return 1 unless $group_obj->object_id == 0;
-        my ($friend) = grep { $_->object_id != 0 } @all_group;
-        return 1 unless $friend;
         $datasource = $group_obj->object_datasource;
-        my $f_obj = $app->model($datasource)->load($friend->object_id);
+        my $tclass = $app->model($datasource);
+        my $clone_id = $app->param('mls_clone');
+        my $friend;
+
+        if ($clone_id) {
+            ($friend) = grep { $_->object_id == $clone_id } @all_group;
+        }
+        else {
+            ($friend) = grep { $_->object_id != 0 } @all_group;            
+        }
+        return 1 unless $friend;
+        my $f_obj = $tclass->load($friend->object_id);
         return 1 unless $f_obj;
-        $param->{basename} = $f_obj->basename;
+
+        if ($clone_id) {
+            my $cols = $tclass->column_names;
+            for my $col (@$cols) {
+                next if defined $app->param($col);
+                $param->{$col} =  $f_obj->$col();
+            }
+        } 
+        else {
+            $param->{basename} = $f_obj->basename;
+        }
     }
     else {
         $group_obj = $gclass->load({ 
