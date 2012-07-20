@@ -421,7 +421,7 @@ sub cms_post_save_entry {
         $g_obj->save if $dirty;
         return 1;
     }
-    elsif ($original->id) {
+    elsif ($original and $original->id) {
         # if this is not a new object, and don't have a group, then it probably should not be in a group
         return 1;
     }
