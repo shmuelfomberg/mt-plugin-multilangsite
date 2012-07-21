@@ -475,8 +475,105 @@ sub cms_post_save_entry {
     return 1;
 }
 
-sub mls_diff {
-    my $app = shift;
+sub mls_diff_revision {
+    my $app   = shift;
+    my $q     = $app->param;
+    my $rev_type  = $q->param('_type');
+    my $id    = $q->param('id');
+    my $rev_from = $q->param('rev_from');
+    my $rev_to   = $q->param('rev_to');
+
+    return $app->errtrans("Invalid request.")
+        unless $rev_type;
+
+    my $type = $rev_type;
+    $type =~ s/:.*//;
+    my $param = {};
+
+    $id =~ s/\D//g;
+    my $class = $app->model($type);
+    my $obj = $class->load($id)
+        or return $app->errtrans(
+            'Can\'t load [_1] #[_1].', $class->class_label, $id
+        );
+    my $blog = $obj->blog || MT::Blog->load( $q->param('blog_id') ) || undef;
+    my $author = $app->user;
+    return $app->permission_denied()
+        if $type eq 'entry'
+        ? (     $obj->author_id == $author->id
+                ? !$app->can_do('edit_own_entry')
+                : !$app->can_do('edit_all_entries')
+            )
+        : $type eq 'page'     ? !$app->can_do('edit_all_pages')
+        : $type eq 'template' ? !$app->can_do('edit_templates')
+        : 1;
+    
+    $rev_from =~ s/\D//g;
+    $rev_to =~ s/\D//g;
+    if ($rev_from > $rev_to) {
+        ($rev_from, $rev_to) = ($rev_to, $rev_from);
+    }
+
+    my $obj_from = $obj->load_revision($rev_from)->[0];
+    my $obj_to = $obj->load_revision($rev_to)->[0];
+    my $diff = $obj_from->diff_object($obj_to);
+
+    my $list_props =  MT->registry( list_properties => $type );
+
+    my $diff_cleaner = sub {
+        my @strings = @_;
+        foreach my $text (@strings) {
+            $text =~ s!<\s*(?:br|p)\s*/\s*>!\n!g;
+            $text =~ s!<\s*/?\s*(?:div|p)\s*>!\n!g;
+            $text =~ s!(?:\s*\n)+! \n!g;
+            $text = remove_html($text);
+            $text =~ s!(\n(\s*))$!!;
+        }
+        return @strings;
+    };
+
+    require Text::Diff::FormattedHTML;
+    my @diff_arr;
+    while (my ($key, $val) = each %$diff) {
+        next unless $val;
+        if (@$val == 1) {
+            my $flag = $val->[0]->{flag};
+            next if not $flag or $flag eq 'u';
+        }
+        my %rec;
+        $rec{title} = $app->translate("Change in <b>[_1]</b>", $key);
+        my ($str1, $str2) = ($obj_from->$key(), $obj_to->$key());
+        if ($type ne 'template') {
+            ($str1, $str2) = $diff_cleaner->($str1, $str2);
+        }
+        $rec{table} = Text::Diff::FormattedHTML::diff_strings( { vertical => 1 }, $str1, $str2);
+        $rec{order} = exists $list_props->{$key}->{order} ? $list_props->{$key}->{order} : 9000;
+        push @diff_arr, \%rec;
+    }
+
+    @diff_arr = sort {$a->{order} <=> $b->{order}} @diff_arr;
+
+    $param->{diff} = \@diff_arr;
+    $param->{compare_css} = Text::Diff::FormattedHTML::diff_css();
+    $param->{type} = $type;
+    $param->{rev_from} = $rev_from;
+    $param->{rev_to} = $rev_to;
+    $param->{rev_from_created} = $obj_from->modified_on;
+    $param->{rev_to_created} = $obj_to->modified_on;
+
+    my $js
+        = $app->uri
+        . '?__mode=view&amp;_type='
+        . $type
+        . '&amp;id='
+        . $obj->id;
+    if ( defined $blog ) {
+        $js .= '&amp;blog_id=' . $blog->id;
+    }
+    $param->{rev_js} = $js;
+
+    local $app->{component} = "MultiLangSite";
+    $app->load_tmpl( "diff_revisions.tmpl", $param );    
 }
 
 1;
