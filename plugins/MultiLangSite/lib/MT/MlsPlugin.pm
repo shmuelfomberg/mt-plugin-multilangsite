@@ -478,35 +478,31 @@ sub cms_post_save_entry {
 sub mls_diff_revision {
     my $app   = shift;
     my $q     = $app->param;
-    my $rev_type  = $q->param('_type');
-    my $id    = $q->param('id');
-    my $rev_from = $q->param('rev_from');
-    my $rev_to   = $q->param('rev_to');
+    my $group_id  = $q->param('groupid');
+    my $object_id = $q->param('object');
+    my $rev_from  = $q->param('rev_from');
+    my $rev_to    = $q->param('rev_to');
+    my $blog_id = $app->blog->id;
 
-    return $app->errtrans("Invalid request.")
-        unless $rev_type;
+    my $gclass = $app->model('mls_groups');
+    my @all_group = $gclass->load({ groupid => $group_id });
+    my $local = grep { $_->blog_id == $blog_id } @all_group;
+    my $diff_obj = grep { $_->object_id == $object_id } @all_group;
 
-    my $type = $rev_type;
-    $type =~ s/:.*//;
-    my $param = {};
+    return $app->errtrans("Invalid Request.")
+        unless $local and $diff_obj and $diff_obj->object_id != 0;
 
-    $id =~ s/\D//g;
-    my $class = $app->model($type);
+    return $app->permission_denied()
+        unless $app->can_do('edit_own_entry');
+
+    my $datasource = $diff_obj->object_datasource;
+    my $class = $app->model($datasource);
     my $obj = $class->load($id)
         or return $app->errtrans(
-            'Can\'t load [_1] #[_1].', $class->class_label, $id
+            'Can\'t load [_1] #[_1].', $class->class_label, $object_id
         );
-    my $blog = $obj->blog || MT::Blog->load( $q->param('blog_id') ) || undef;
-    my $author = $app->user;
-    return $app->permission_denied()
-        if $type eq 'entry'
-        ? (     $obj->author_id == $author->id
-                ? !$app->can_do('edit_own_entry')
-                : !$app->can_do('edit_all_entries')
-            )
-        : $type eq 'page'     ? !$app->can_do('edit_all_pages')
-        : $type eq 'template' ? !$app->can_do('edit_templates')
-        : 1;
+
+    my $param = {};
     
     $rev_from =~ s/\D//g;
     $rev_to =~ s/\D//g;
@@ -543,9 +539,7 @@ sub mls_diff_revision {
         my %rec;
         $rec{title} = $app->translate("Change in <b>[_1]</b>", $key);
         my ($str1, $str2) = ($obj_from->$key(), $obj_to->$key());
-        if ($type ne 'template') {
-            ($str1, $str2) = $diff_cleaner->($str1, $str2);
-        }
+        ($str1, $str2) = $diff_cleaner->($str1, $str2);
         $rec{table} = Text::Diff::FormattedHTML::diff_strings( { vertical => 1 }, $str1, $str2);
         $rec{order} = exists $list_props->{$key}->{order} ? $list_props->{$key}->{order} : 9000;
         push @diff_arr, \%rec;
@@ -555,7 +549,7 @@ sub mls_diff_revision {
 
     $param->{diff} = \@diff_arr;
     $param->{compare_css} = Text::Diff::FormattedHTML::diff_css();
-    $param->{type} = $type;
+    $param->{type} = $datasource;
     $param->{rev_from} = $rev_from;
     $param->{rev_to} = $rev_to;
     $param->{rev_from_created} = $obj_from->modified_on;
