@@ -73,19 +73,8 @@ sub set_blog_group {
         foreach my $type (qw{entry page}) {
             my $iter = $app->model($type)->load_iter({blog_id => $blog_id});
             while (my $obj = $iter->()) {
-                my $obj_g = $gclass->new();
-                $obj_g->blog_id($blog_id);
-                $obj_g->object_id($obj->id);
-                $obj_g->object_datasource($obj->datasource);
-                $obj_g->url($obj->permalink());
-                $obj_g->groupid(0);
-                $obj_g->obj_rev($obj->current_revision);
-                $obj_g->is_outdated(0);
-                $obj_g->update_peer_id(0);
-                $obj_g->update_peer_rev(0);
-                $obj_g->save;
-                $obj_g->groupid($obj_g->id);
-                $obj_g->update;
+                my $g_obj = $gclass->new_for_entry($obj);
+                $group_id = $g_obj->groupid;
             }
         }
     }
@@ -95,17 +84,8 @@ sub set_blog_group {
         my ($peer_blog_id) = grep { $_ != $blog_id } map $_->object_id, @blogs;
         my $iter = $gclass->load_iter({ blog_id => $peer_blog_id });
         while (my $obj = $iter->()) {
-            my $obj_g = $gclass->new();
-            $obj_g->blog_id($blog_id);
-            $obj_g->object_id(0);
-            $obj_g->object_datasource($obj->object_datasource);
-            $obj_g->url('');
-            $obj_g->groupid($obj->groupid);
-            $obj_g->obj_rev(0);
-            $obj_g->is_outdated(1);
-            $obj_g->update_peer_id(0);
-            $obj_g->update_peer_rev(0);
-            $obj_g->save;
+            my $s_obj = $gclass->new_placeholder($blog_id, $obj->datasource, $obj->groupid);
+            $s_obj->save();
         }
     }
     return 1;
@@ -268,6 +248,7 @@ sub cms_edit_entry {
         }
     }
     else {
+        $datasource = $obj->datasource;
         $group_obj = $gclass->load({ 
             blog_id => $blog_id, 
             object_id => $obj->id, 
@@ -275,7 +256,6 @@ sub cms_edit_entry {
         });
         return 1 unless $group_obj;
         @all_group = $gclass->load( { groupid => $group_obj->groupid } );
-        $datasource = $obj->datasource;
     }
     $param->{mls_group} = $group_obj->groupid;
     $param->{mls_is_outdated} = $group_obj->is_outdated;
@@ -355,7 +335,7 @@ sub cms_edit_entry_template {
     my $select_code = '<select id="mls_status_select" name="mls_status_select">';
     $select_code .= '<option value="0" selected>Set entry status...</option>';
     if (not $param->{mls_is_outdated}) {
-        $select_code .= '<option value="new_version" selected>Declare new version</option>';
+        $select_code .= '<option value="new_version">Declare new version</option>';
     }
     my $peer_recs = $param->{mls_peer_recs};
     foreach my $rec (@$peer_recs) {
@@ -386,6 +366,7 @@ sub cms_post_save_entry_handle_others {
     }
     elsif ($status_select eq 'new_version') {
         $g_obj->is_outdated(0);
+        $g_obj->obj_rev($obj->current_revision);
         foreach my $o (@others) {
             $o->is_outdated(1);
             $o->save;
@@ -399,6 +380,7 @@ sub cms_post_save_entry_handle_others {
         $g_obj->obj_rev($obj->current_revision);
         $g_obj->update_peer_id($o_obj_id);
         $g_obj->update_peer_rev($o_obj_g->obj_rev);
+        $g_obj->is_outdated($o_obj_g->is_outdated);
         $dirty = 1;
     }
     return $dirty;
@@ -411,24 +393,28 @@ sub cms_post_save_entry {
     
     my $g_obj;
 
-    if ($g_obj = $gclass->load({ blog_id => $obj->blog_id, object_id => $obj->id, object_datasource => $obj->datasource })) {
-        $group_id = $g_obj->groupid;
-        my $dirty = cms_post_save_entry_handle_others($app, $obj, $g_obj);
-        if ($obj->basename ne $original->basename) {
-            $g_obj->url($obj->permalink());
-            $dirty = 1;
+    if ($original and $original->id) {
+        if ($g_obj = $gclass->load({ blog_id => $obj->blog_id, object_id => $obj->id, object_datasource => $obj->datasource })) {
+            $group_id = $g_obj->groupid;
+            my $dirty = cms_post_save_entry_handle_others($app, $obj, $g_obj);
+            if ($obj->basename ne $original->basename) {
+                $g_obj->url($obj->permalink());
+                $dirty = 1;
+            }
+            $g_obj->save if $dirty;
         }
-        $g_obj->save if $dirty;
-        return 1;
-    }
-    elsif ($original and $original->id) {
         # if this is not a new object, and don't have a group, then it probably should not be in a group
         return 1;
     }
 
     if ($group_id) {
         # a new object, but we know to which group it belong
-        $g_obj = $gclass->load({ blog_id => $obj->blog_id, object_id => 0, object_datasource => $obj->datasource });
+        $g_obj = $gclass->load({ 
+            blog_id => $obj->blog_id, 
+            object_id => 0, 
+            object_datasource => $obj->datasource,
+            groupid => $group_id,
+        });
         return 1 unless $g_obj;
         $g_obj->object_id($obj->id);
         $g_obj->url($obj->permalink());
@@ -442,34 +428,12 @@ sub cms_post_save_entry {
         return 1 unless $g_blog;
         my @all_blogs = $gclass->load({ blog_id => 0, object_datasource => 'blog', groupid => $g_blog->groupid });
         my @other_blogs = grep { $_->object_id != $g_blog->object_id } @all_blogs;
-        my $g_obj = $gclass->new();
-        
-        $g_obj->blog_id($obj->blog_id);
-        $g_obj->object_id($obj->id);
-        $g_obj->object_datasource($obj->datasource);
-        $g_obj->url($obj->permalink());
-        $g_obj->groupid(0);
-        $g_obj->obj_rev($obj->current_revision);
-        $g_obj->is_outdated(0);
-        $g_obj->update_peer_id(0);
-        $g_obj->update_peer_rev(0);
-        $g_obj->save;
-        $g_obj->groupid($g_obj->id);
-        $g_obj->update;
+        my $g_obj = $gclass->new_for_entry($obj);
         $group_id = $g_obj->groupid;
 
         foreach my $blog (@other_blogs) {
-            my $s_obj = $gclass->new();
-            $g_obj->blog_id($blog->object_id);
-            $g_obj->object_id(0);
-            $g_obj->object_datasource($obj->datasource);
-            $g_obj->url('');
-            $g_obj->groupid($group_id);
-            $g_obj->obj_rev(0);
-            $g_obj->is_outdated(1);
-            $g_obj->update_peer_id(0);
-            $g_obj->update_peer_rev(0);
-            $g_obj->save;
+            my $s_obj = $gclass->new_placeholder($blog->object_id, $obj->datasource, $group_id);
+            $s_obj->save();
         }
     }
     return 1;
@@ -486,8 +450,8 @@ sub mls_diff_revision {
 
     my $gclass = $app->model('mls_groups');
     my @all_group = $gclass->load({ groupid => $group_id });
-    my $local = grep { $_->blog_id == $blog_id } @all_group;
-    my $diff_obj = grep { $_->object_id == $object_id } @all_group;
+    my ($local) = grep { $_->blog_id == $blog_id } @all_group;
+    my ($diff_obj) = grep { $_->object_id == $object_id } @all_group;
 
     return $app->errtrans("Invalid Request.")
         unless $local and $diff_obj and $diff_obj->object_id != 0;
@@ -497,7 +461,7 @@ sub mls_diff_revision {
 
     my $datasource = $diff_obj->object_datasource;
     my $class = $app->model($datasource);
-    my $obj = $class->load($id)
+    my $obj = $class->load($object_id)
         or return $app->errtrans(
             'Can\'t load [_1] #[_1].', $class->class_label, $object_id
         );
@@ -514,7 +478,8 @@ sub mls_diff_revision {
     my $obj_to = $obj->load_revision($rev_to)->[0];
     my $diff = $obj_from->diff_object($obj_to);
 
-    my $list_props =  MT->registry( list_properties => $type );
+    my $list_props =  MT->registry( list_properties => $datasource );
+    require MT::Util;
 
     my $diff_cleaner = sub {
         my @strings = @_;
@@ -522,7 +487,7 @@ sub mls_diff_revision {
             $text =~ s!<\s*(?:br|p)\s*/\s*>!\n!g;
             $text =~ s!<\s*/?\s*(?:div|p)\s*>!\n!g;
             $text =~ s!(?:\s*\n)+! \n!g;
-            $text = remove_html($text);
+            $text = MT::Util::remove_html($text);
             $text =~ s!(\n(\s*))$!!;
         }
         return @strings;
@@ -558,11 +523,11 @@ sub mls_diff_revision {
     my $js
         = $app->uri
         . '?__mode=view&amp;_type='
-        . $type
+        . $datasource
         . '&amp;id='
         . $obj->id;
-    if ( defined $blog ) {
-        $js .= '&amp;blog_id=' . $blog->id;
+    if ( $blog_id ) {
+        $js .= '&amp;blog_id=' . $blog_id;
     }
     $param->{rev_js} = $js;
 

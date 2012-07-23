@@ -63,7 +63,7 @@ applications:
                 args:
                     _type: mls_groups
         methods:
-            mls_diff: '$MultiLangSite::MT::MlsPlugin::mls_diff'
+            mls_diff: '$MultiLangSite::MT::MlsPlugin::mls_diff_revision'
         callbacks:
             cms_pre_load_filtered_list.mls_groups: '$MultiLangSite::MT::MlsPlugin::mls_filter_group_objects'
             template_param.edit_entry: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry_template'
