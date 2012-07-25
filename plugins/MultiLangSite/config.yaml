@@ -62,6 +62,7 @@ applications:
                 mode: list
                 args:
                     _type: mls_groups
+                condition: '$MultiLangSite::MT::MlsObjectGroups::BlogHasGroup'
         methods:
             mls_diff: '$MultiLangSite::MT::MlsPlugin::mls_diff_revision'
         callbacks:

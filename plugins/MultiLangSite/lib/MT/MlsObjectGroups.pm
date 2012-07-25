@@ -85,4 +85,13 @@ sub new_placeholder {
     return $g_obj;
 }
 
+sub BlogHasGroup {
+    my $app = MT->app;
+    return $app->model('mls_groups')->exist( 
+        { blog_id => 0, 
+          object_id => $app->blog->id, 
+          object_datasource => 'blog', 
+        });
+}
+
 1;
