@@ -70,6 +70,11 @@ applications:
             template_param.edit_entry: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry_template'
             cms_edit.page: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry'
             cms_edit.entry: '$MultiLangSite::MT::MlsPlugin::cms_edit_entry'
-            cms_post_save.entry: '$MultiLangSite::MT::MlsPlugin::cms_post_save_entry'
-            cms_post_save.page: '$MultiLangSite::MT::MlsPlugin::cms_post_save_entry'
+            # priority 10 so the revisable callback will kick in before us
+            cms_post_save.entry: 
+                code: '$MultiLangSite::MT::MlsPlugin::cms_post_save_entry'
+                priority: 10
+            cms_post_save.page: 
+                code: '$MultiLangSite::MT::MlsPlugin::cms_post_save_entry'
+                priority: 10
 

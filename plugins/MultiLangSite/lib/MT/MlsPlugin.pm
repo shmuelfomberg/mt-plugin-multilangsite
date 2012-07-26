@@ -376,6 +376,7 @@ sub cms_post_save_entry_handle_others {
     elsif ($status_select eq 'new_version') {
         $g_obj->is_outdated(0);
         $g_obj->obj_rev($obj->current_revision);
+        $dirty = 1;
         foreach my $o (@others) {
             $o->is_outdated(1);
             $o->save;
