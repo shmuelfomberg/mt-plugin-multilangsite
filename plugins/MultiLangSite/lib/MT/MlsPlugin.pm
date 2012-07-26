@@ -84,7 +84,7 @@ sub set_blog_group {
         my ($peer_blog_id) = grep { $_ != $blog_id } map $_->object_id, @blogs;
         my $iter = $gclass->load_iter({ blog_id => $peer_blog_id });
         while (my $obj = $iter->()) {
-            my $s_obj = $gclass->new_placeholder($blog_id, $obj->datasource, $obj->groupid);
+            my $s_obj = $gclass->new_placeholder($blog_id, $obj->object_datasource, $obj->groupid);
             $s_obj->save();
         }
     }
@@ -118,12 +118,13 @@ sub listing_info_html {
     my $printer = sub {
         my ($entry, $is_peer) = @_;
         my @add_classes;
-        push @add_classes, "mls_outdated" 
-            if $group_data{$entry->id}->is_outdated;
-        push @add_classes, "mls_was_update"
+        push @add_classes, 
+            ( $group_data{$entry->id}->is_outdated 
+                ? { alt => 'outdated', img => 'warning' } 
+                : { alt => 'up to date', img => 'success' } ); 
+        push @add_classes, { alt => 'changed', img => 'up' }
             if $is_peer and 
                 ($group_data{$entry->id}->obj_rev != $obj->update_peer_rev);
-        my $class_set = @add_classes ? ' class="' . join(' ', @add_classes) . '"' : '';
         my $blog = $blogs{$entry->blog_id};
         my ($short) = split '\\|', $blog->url;
         $short = MT::Util::encode_html($short, 1);
@@ -163,7 +164,15 @@ sub listing_info_html {
         if ($new_title) {
             $new_html = " <a href=\"$new_url\">($new_title)</a>";
         }
-        $out .= "<span $class_set><a href=\"$url\">$short($title)</a>$new_html</span>";
+        if (@add_classes) {
+            my $images_url = $app->static_path . 'images/status_icons/';
+            $out .= '<span class="icon status published">';
+            foreach my $f (@add_classes) {
+                $out.= '<img src="'. $images_url . $f->{img} . '.gif" alt="' . $f->{alt} . '"/>';
+            }
+            $out .= '</span>';
+        }
+        $out .= "<span><a href=\"$url\">$short($title)</a>$new_html</span>";
     };
     $printer->($update_peer, 1) if $update_peer;
     if (@friends) {
