@@ -8,6 +8,7 @@ Each blog / website should be added to a group.
 After it is in a group with other blogs / website, each entry / page has its own mini-group, together with the crossponding entries / pages in the other blogs. 
 
 Under the Entries menu, there is a sub-menu called 'Updates', where all the entries / pages in this blog that need updating will show up, and will also specify the status of all the crossponding entries. 
+In the updates screen you can see which entry needs updating, see diffs of updates, create new entries for entries that were added in other blogs, or clone these entries.
 
 In the entry edit page, there is a widget that let you specify if this entry is up-to-date, (actually, it is match-to, as you are updateding to be the same version as other variant of the page) or is this a new version. (then all other versions are marked as outdated and needed to be updated)
 
@@ -20,6 +21,11 @@ Installation
 ------------
 
 Standard MT plugin install
+
+Compatability
+-------------
+
+Should work with MT5.12 and up
 
 License
 -------
