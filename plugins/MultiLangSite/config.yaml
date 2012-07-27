@@ -31,6 +31,7 @@ callbacks:
 listing_screens:
     mls_groups:
         object_label: Updates Listing
+        screen_label: Updates Listing
         primary: info
         default_sort_key: id
         view: blog
