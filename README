@@ -1,0 +1,32 @@
+Movable Type Plugin - Multi Languages Sites Helper
+--------------------------------------------------
+
+This plugin can help you write miltiple-variant sites, such as multiple-languages sites.
+
+Each blog / website should be added to a group. 
+(Under Tools -> Plugins menu, in this plugin's settings)
+After it is in a group with other blogs / website, each entry / page has its own mini-group, together with the crossponding entries / pages in the other blogs. 
+
+Under the Entries menu, there is a sub-menu called 'Updates', where all the entries / pages in this blog that need updating will show up, and will also specify the status of all the crossponding entries. 
+
+In the entry edit page, there is a widget that let you specify if this entry is up-to-date, (actually, it is match-to, as you are updateding to be the same version as other variant of the page) or is this a new version. (then all other versions are marked as outdated and needed to be updated)
+
+Note: Only a Page / Entry that is up-to-date can be set to a new version
+
+This plugin supports translation chaining: Say we have a page in Japanese written by A, that B translated to English. 
+Suppose A updated the Japanese page. now C (that knows only English and Hebrew) can translate the (outdated) English page to Hebrew. This translating will be marked as outdated, and C will be able to see if B updated the English translating or not, and wait until he does.
+
+Installation
+------------
+
+Standard MT plugin install
+
+License
+-------
+
+Artistic 2
+
+Copyright
+---------
+
+Written By Shmuel Fomberg, 2012.
