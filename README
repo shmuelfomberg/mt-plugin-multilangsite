@@ -27,6 +27,15 @@ Compatability
 
 Should work with MT5.12 and up
 
+TODO
+----
+
+NOTE: I'm not going to implement any of the TODOs without someone telling me that he is going to use this plugin. thanks.
+
+Adding a template tag that cross-link various entry translations
+The diff screen was taken from a different project - could use refresh and adding some useful links
+The widget in the edit screen could use some improvement
+
 License
 -------
 
